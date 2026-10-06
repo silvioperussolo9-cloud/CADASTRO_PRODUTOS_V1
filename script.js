@@ -1,83 +1,109 @@
 //
-//FASE 1: modelagem dos dados (Classe Base)
+// FASE 1: Modelagem dos dados (Classe Base)
 //
-//A classe funciona como um molde para criar produtos
-class Produto{
-    constructor(nome,preco,quantidade){
-        //propriedades do objeto recebidas no momento da criação
+class Produto {
+    constructor(nome, preco, quantidade) {
         this.nome = nome;
-        this.preco =parseFloat(preco);
+        this.preco = parseFloat(preco);
         this.quantidade = parseInt(quantidade);
     }
-    //método que calcula o subtotal
-    calcularSubtotal(){
-        return this.preco*this.quantidade;
+
+    calcularSubtotal() {
+        return this.preco * this.quantidade;
     }
 }
 
 //
-//FASE 2: Gerenciamento de Estado (memória)
+// FASE 2: Gerenciamento de Estado e Persistência (LocalStorage)
 //
-//Array global que guardará todas as instâncias da classe Produto
+// Função auxiliares para carregar e salvar produtos no LocalStorage
+function carregarProdutosDoStorage() {
+    const dadosSalvos = localStorage.getItem("produtos_estoque");
+    if (!dadosSalvos) return [];
+    
+    // Converte os dados salvos em instâncias da classe Produto
+    const listaJson = JSON.parse(dadosSalvos);
+    return listaJson.map(item => new Produto(item.nome, item.preco, item.quantidade));
+}
 
-const listaDeProdutos = [];
+function salvarProdutosNoStorage() {
+    localStorage.setItem("produtos_estoque", JSON.stringify(listaDeProdutos));
+}
+
+// Array global recarregado a partir do LocalStorage
+const listaDeProdutos = carregarProdutosDoStorage();
 
 //
-//FASE 3: Escuta de Eventos do DOM
+// FASE 3: Escuta de Eventos do DOM
 //
-//Selecionamos o formulário pelo ID
 const formProduto = document.getElementById("produto-form");
+const btnLimparTudo = document.getElementById("limpar-tabela");
 
-//adicionar um escutador de eventos para quando o formulário for enviado
-formProduto.addEventListener("submit",function(event){
+// Adicionar produto
+formProduto.addEventListener("submit", function(event) {
     event.preventDefault();
 
-    //1.captura dos valores digitados nos campos de input
     const nomeInput = document.getElementById("nome").value;
     const precoInput = document.getElementById("preco").value;
     const quantidadeInput = document.getElementById("quantidade").value;
 
-    //2. Criar uma nova instância da classe Produto
-    const novoProduto = new Produto(nomeInput,precoInput,quantidadeInput);
+    const novoProduto = new Produto(nomeInput, precoInput, quantidadeInput);
 
-
-    //3.Adiciona o novo produto ao array
     listaDeProdutos.push(novoProduto);
-
-    //4. atualiza a exibição da tabela e limpa o formulário
+    salvarProdutosNoStorage();
     renderizarTabela();
     formProduto.reset();
 });
 
+// Limpar todos os produtos
+btnLimparTudo.addEventListener("click", function() {
+    if (listaDeProdutos.length === 0) return;
+
+    if (confirm("Deseja realmente remover todos os produtos?")) {
+        listaDeProdutos.length = 0; // Limpa o array mantendo a referência
+        salvarProdutosNoStorage();
+        renderizarTabela();
+    }
+});
+
+// Remover produto individual usando a função no escopo global
+function removerProduto(index) {
+    listaDeProdutos.splice(index, 1);
+    salvarProdutosNoStorage();
+    renderizarTabela();
+}
+
 //
-//FASE 4: Renderização da Interface DOM
+// FASE 4: Renderização da Interface DOM
 //
-//função responsável por desenhar na tela o estado
-//atual do array listDeProdutos
-function renderizarTabela(){
-    //seleciona o corpo da tabela (tbody)
+function renderizarTabela() {
     const tabelaBody = document.querySelector("#tabela-produtos tbody");
+    const totalEstoqueEl = document.getElementById("total-estoque");
 
-    //limpa o conteúdo anterior da tabela
     tabelaBody.innerHTML = "";
+    let totalGeral = 0;
 
-    //percorre o array de produtos usando forEach
-    listaDeProdutos.forEach((produto)=>{
-        //criar uam linha tr dentro da tabela
+    listaDeProdutos.forEach((produto, index) => {
+        const subtotal = produto.calcularSubtotal();
+        totalGeral += subtotal;
+
         const linha = document.createElement("tr");
-
-        //preenche o conteúdo da linha com os dados do objeto
         linha.innerHTML = `
             <td>${produto.nome}</td>
             <td>R$ ${produto.preco.toFixed(2)}</td>
             <td>${produto.quantidade}</td>
-            <td>R$ ${produto.calcularSubtotal().toFixed(2)}</td>
+            <td>R$ ${subtotal.toFixed(2)}</td>
             <td>
-                <button class="btn-remover">Remover</button>
+                <button class="btn-remover" onclick="removerProduto(${index})">Remover</button>
             </td>
         `;
 
-        //insere a linha criada dentro do tbody da tabela
         tabelaBody.appendChild(linha);
-    })
+    });
+
+    // Atualiza o total exibido
+    totalEstoqueEl.textContent = `Total em Estoque: R$ ${totalGeral.toFixed(2)}`;
 }
+
+// Inicialização da renderização na primeira carga da página
+renderizarTabela();
